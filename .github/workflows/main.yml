@@ -2,7 +2,7 @@ name: 환율 알림 봇
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # 10분마다 실행하라는 명령어
+    - cron: '*/1 * * * *'  # 10분마다 실행하라는 명령어
   workflow_dispatch:      # 내가 원할 때 수동으로 실행하는 버튼
 
 jobs:
