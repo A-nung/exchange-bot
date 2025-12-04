@@ -1,0 +1,27 @@
+name: 환율 알림 봇
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # 10분마다 실행하라는 명령어
+  workflow_dispatch:      # 내가 원할 때 수동으로 실행하는 버튼
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 코드 가져오기
+        uses: actions/checkout@v3
+
+      - name: 파이썬 설치
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: 필요한 도구 설치
+        run: pip install -r requirements.txt
+
+      - name: 봇 실행
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python main.py
