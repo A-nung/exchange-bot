@@ -1,74 +1,102 @@
 import requests
 from bs4 import BeautifulSoup
 import os
-from fake_useragent import UserAgent  # 랜덤 헤더 생성 도구
+from fake_useragent import UserAgent
 
 # GitHub 금고에서 비밀번호를 꺼내옵니다
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
 CHAT_ID = os.environ.get('CHAT_ID')
 
-def get_exchange_rates():
-    url = "https://finance.naver.com/marketindex/"
-    
-    # 1. 가짜 유저 에이전트 객체 생성
+def get_headers():
+    # 매번 새로운 브라우저인 척 위장하는 함수
     ua = UserAgent()
-    
-    # 2. ua.random을 호출하면 매번 다른 브라우저/OS 정보를 줍니다 (완전 랜덤)
-    headers = {
-        'User-Agent': ua.random
-    }
+    return {'User-Agent': ua.random}
 
+def get_exchange_rates():
+    # [1] 환율 정보 가져오기
+    url = "https://finance.naver.com/marketindex/"
     try:
-        # 랜덤 헤더를 달고 요청 전송
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()  # 접속 에러(404, 500 등) 체크
-        
+        response = requests.get(url, headers=get_headers())
+        response.raise_for_status()
         soup = BeautifulSoup(response.content, "html.parser")
         
-        message_list = []
+        rates = []
         
-        # 1. 미국 달러(USD) 가져오기
+        # 미국 USD
         usd = soup.select_one("a.head.usd > div.head_info > span.value")
         if usd:
-            message_list.append(f"🇺🇸 미국 USD: {usd.text}원")
+            rates.append(f"🇺🇸 미국 USD: {usd.text}원")
             
-        # 2. 일본 엔화(JPY) 가져오기 (100엔 기준)
+        # 일본 JPY
         jpy = soup.select_one("a.head.jpy > div.head_info > span.value")
         if jpy:
-            message_list.append(f"🇯🇵 일본 JPY (100엔): {jpy.text}원")
-        
-        # 정보가 없으면 None 반환
-        if not message_list:
-            return None
+            rates.append(f"🇯🇵 일본 JPY (100엔): {jpy.text}원")
             
-        return "\n".join(message_list)
+        return "\n".join(rates) if rates else "환율 정보 없음"
+    except Exception as e:
+        print(f"환율 가져오기 실패: {e}")
+        return "환율 정보를 불러올 수 없음"
+
+def get_weather_info():
+    # [2] 서울 날씨 및 미세먼지 가져오기
+    url = "https://search.naver.com/search.naver?query=서울+날씨"
+    try:
+        response = requests.get(url, headers=get_headers())
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, "html.parser")
+        
+        weather_data = []
+        
+        # 1. 현재 온도 (예: 5.4°)
+        # '현재 온도'라는 글자를 제외하고 숫자와 기호만 가져오기 위해 slice 사용
+        temp_tag = soup.select_one("div.temperature_text > strong")
+        if temp_tag:
+            # "현재 온도5.4°" -> "5.4°" 로 깔끔하게 정리
+            current_temp = temp_tag.text.replace("현재 온도", "").strip()
+            weather_data.append(f"🌡 서울 온도: {current_temp}")
+        
+        # 2. 미세먼지 & 초미세먼지 상태
+        # 네이버 날씨 박스 안의 리스트에서 상태(좋음/보통/나쁨)를 찾습니다.
+        details = soup.select("ul.today_chart_list > li")
+        
+        if len(details) >= 2:
+            # 첫 번째 항목: 미세먼지
+            fine_dust = details[0].select_one("span.txt").text
+            # 두 번째 항목: 초미세먼지
+            ultra_fine_dust = details[1].select_one("span.txt").text
+            
+            weather_data.append(f"😷 미세먼지: {fine_dust}")
+            weather_data.append(f"🌫 초미세먼지: {ultra_fine_dust}")
+            
+        return "\n".join(weather_data) if weather_data else "날씨 정보 없음"
 
     except Exception as e:
-        # 에러 발생 시 로그만 남기고 봇이 멈추지 않게 함
-        print(f"환율 정보를 가져오는 중 에러 발생: {e}")
-        return None
+        print(f"날씨 가져오기 실패: {e}")
+        return "날씨 정보를 불러올 수 없음"
 
 def send_telegram_message(message):
     if not TELEGRAM_TOKEN or not CHAT_ID:
-        print("텔레그램 토큰이나 CHAT_ID가 설정되지 않았습니다.")
         return
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     data = {'chat_id': CHAT_ID, 'text': message}
-    
-    try:
-        response = requests.post(url, data=data)
-        if response.status_code != 200:
-            print(f"메시지 전송 실패: {response.text}")
-    except Exception as e:
-        print(f"전송 중 에러 발생: {e}")
+    requests.post(url, data=data)
 
 if __name__ == "__main__":
-    rates = get_exchange_rates()
+    # 1. 환율 정보 가져오기
+    rates_msg = get_exchange_rates()
     
-    if rates:
-        print("환율 가져오기 성공")
-        final_message = f"💰 [현재 환율 정보]\n\n{rates}"
-        send_telegram_message(final_message)
-    else:
-        print("환율 정보를 가져오지 못했습니다.")
+    # 2. 날씨 정보 가져오기
+    weather_msg = get_weather_info()
+    
+    # 3. 메시지 합치기
+    final_message = (
+        f"📅 [오늘의 정보 알림]\n\n"
+        f"{weather_msg}\n\n"
+        f"💰 [환율]\n"
+        f"{rates_msg}"
+    )
+    
+    # 4. 전송
+    print(final_message) # 로그 확인용
+    send_telegram_message(final_message)
