@@ -46,7 +46,7 @@ def get_financial_info():
         news_list = []
         items = root.findall('./channel/item')
         
-        for item in items[:10]:
+        for item in items[:20]:
             # 제목에 <, > 같은 특수문자가 있을 수 있어 안전하게 변환
             title = html.escape(item.find('title').text)
             link = item.find('link').text
