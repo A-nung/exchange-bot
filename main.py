@@ -72,7 +72,7 @@ def get_financial_info():
         news_list = []
         items = root.findall('./channel/item')
         
-        for item in items[:20]:
+        for item in items[:10]:
             title = html.escape(item.find('title').text)
             link = item.find('link').text
             news_list.append(f"📰 <a href='{link}'>{title}</a>")
