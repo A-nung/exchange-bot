@@ -73,12 +73,12 @@ def get_financial_info():
             
             # --- A. 비트코인일 경우 ---
             if market == 'KRW-BTC':
-                coin_messages.append(f"🪙 비트코인 (BTC): <b>{price_fmt}원</b> ({emoji} {rate_fmt}%)")
+                coin_messages.append(f"비트코인 (BTC): <b>{price_fmt}원</b> ({emoji} {rate_fmt}%)")
             
             # --- B. 샌드박스일 경우 (평단가 로직 추가) ---
             elif market == 'KRW-SAND':
                 # 기본 시세 정보
-                base_msg = f"⏳ 샌드박스 (SAND): <b>{price_fmt}원</b> ({emoji} {rate_fmt}%)"
+                base_msg = f"샌드박스 (SAND): <b>{price_fmt}원</b> ({emoji} {rate_fmt}%)"
                 
                 # [내 평단가 계산 로직]
                 my_avg_price = 898  # 설정하신 평단가
@@ -119,7 +119,7 @@ def get_financial_info():
             news_list = []
             items = root.findall('./channel/item')
             
-            for item in items[:20]:
+            for item in items[:10]:
                 title = html.escape(item.find('title').text)
                 link = item.find('link').text
                 news_list.append(f"📰 <a href='{link}'>{title}</a>")
