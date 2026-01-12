@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import os
 import xml.etree.ElementTree as ET
 import html 
-# timezone 모듈을 추가로 임포트합니다.
 from datetime import datetime, timedelta, timezone
 
 # GitHub Secrets에서 환경변수 불러오기
@@ -11,8 +10,7 @@ TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
 CHAT_ID = os.environ.get('CHAT_ID')
 
 def get_financial_info():
-    # --- [수정] 한국 시간(KST) 처리 로직 ---
-    # utcnow() 대신 timezone을 명시적으로 설정하여 KST를 계산합니다.
+    # --- [수정] 한국 시간(KST) 처리 로직 (최신 표준 방식) ---
     kst_tz = timezone(timedelta(hours=9))
     kst_now = datetime.now(kst_tz)
     current_hour = kst_now.hour
@@ -41,18 +39,15 @@ def get_financial_info():
         if jpy:
             market_list.append(f"🇯🇵 일본 JPY (100엔): <b>{jpy.text}원</b>")
 
-        # --- [추가] 금/은 시세 정보 ---
-        # 국제 금 시세
+        # 금/은 시세 정보
         gold_intl = soup.select_one("a.head.gold_intl > div.head_info > span.value")
         if gold_intl:
             market_list.append(f"🏆 국제 금: <b>{gold_intl.text}달러/온스</b>")
 
-        # 국내 금 시세
         gold_dom = soup.select_one("a.head.gold_domestic > div.head_info > span.value")
         if gold_dom:
             market_list.append(f"🥇 국내 금: <b>{gold_dom.text}원/g</b>")
 
-        # 은 시세
         silver = soup.select_one("a.head.silver > div.head_info > span.value")
         if silver:
             market_list.append(f"🥈 국제 은: <b>{silver.text}달러/온스</b>")
@@ -63,7 +58,7 @@ def get_financial_info():
         market_str = f"금융 정보 에러: {e}"
 
     # ------------------------------------------------
-    # 2. 가상화폐 시세 (비트코인 + 샌드박스)
+    # 2. 가상화폐 시세 (아이콘 추가)
     # ------------------------------------------------
     upbit_url = "https://api.upbit.com/v1/ticker?markets=KRW-BTC,KRW-SAND"
     
@@ -81,15 +76,20 @@ def get_financial_info():
             price_fmt = f"{trade_price:,}"
             rate_fmt = f"{change_rate * 100:.2f}"
             
+            # --- [수정] 코인별 아이콘 추가 ---
             if market == 'KRW-BTC':
-                coin_messages.append(f"비트코인 (BTC): <b>{price_fmt}원</b> ({emoji} {rate_fmt}%)")
+                coin_messages.append(f"🟠 비트코인 (BTC): <b>{price_fmt}원</b> ({emoji} {rate_fmt}%)")
+            
             elif market == 'KRW-SAND':
-                base_msg = f"샌드박스 (SAND): <b>{price_fmt}원</b> ({emoji} {rate_fmt}%)"
+                # 샌드박스의 성격(메타버스/게임)에 맞춰 게임기 아이콘 추가
+                base_msg = f"🎮 샌드박스 (SAND): <b>{price_fmt}원</b> ({emoji} {rate_fmt}%)"
+                
                 my_avg_price = 898 
                 my_return_rate = ((trade_price - my_avg_price) / my_avg_price) * 100
                 my_emoji = "🔥" if my_return_rate > 0 else "💧" if my_return_rate < 0 else "-"
                 my_return_fmt = f"{my_return_rate:.2f}"
                 profit_msg = f"   ↳ 내 수익률: {my_emoji} <b>{my_return_fmt}%</b> (평단 {my_avg_price}원)"
+                
                 coin_messages.append(f"{base_msg}\n{profit_msg}")
         
         bitcoin_str = "\n\n".join(coin_messages)
@@ -133,7 +133,6 @@ if __name__ == "__main__":
     
     if market_info or coins:
         message_parts = []
-        # 제목을 [금융 및 시장 지표]로 변경
         message_parts.append(f"💰 <b>[금융 및 시장 지표]</b>\n{market_info}")
         message_parts.append(f"🚀 <b>[가상화폐 시세 (Upbit)]</b>\n{coins}")
         if news:
