@@ -137,7 +137,7 @@ if __name__ == "__main__":
     # 메시지 섹션 구성 (가독성을 위한 세 줄 바꿈 적용) 
     final_parts = []
     if exchange:
-        final_parts.append(f"📊 <b>[주요 환율 정보]</b>\n{exchange}")
+        final_parts.append(f"📊 <b>[주요 환율 정보]</b>\n\n{exchange}")
     if coins:
         final_parts.append(f"🚀 <b>[가상화폐 시세]</b>\n\n{coins}")
     if news:
