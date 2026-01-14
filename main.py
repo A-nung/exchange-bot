@@ -24,8 +24,8 @@ def get_financial_info():
     kst_now = datetime.now(kst_tz)
     current_hour = kst_now.hour
     
-    # 뉴스 발송 여부 결정 (3시간 간격) 
-    is_news_time = (current_hour % 3 == 0)
+    # 뉴스 발송 여부 결정 (1시간 간격) 
+    is_news_time = (current_hour % 1 == 0)
 
     # ------------------------------------------------
     # 2. 주요 환율 정보 수집 (네이버 금융) 
