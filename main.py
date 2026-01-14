@@ -1,94 +1,92 @@
 import requests
 from bs4 import BeautifulSoup
 import os
-from datetime import datetime, timedelta, timezone
 
 # ------------------------------------------------
 # 1. 환경 설정 및 상수 정의 
 # ------------------------------------------------
-TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN') [cite: 1]
-CHAT_ID = os.environ.get('CHAT_ID') [cite: 1]              
-MY_SAND_AVG = 898 [cite: 1]                                 
+TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN') 
+CHAT_ID = os.environ.get('CHAT_ID')               
+MY_SAND_AVG = 898                                 
 
-# HTTP 요청 시 사용할 헤더
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-} [cite: 1]
+}
 
 def get_financial_info():
-    """금융 지표 및 코인 시세를 수집하여 반환합니다."""
+    """환율 및 코인 시세를 수집합니다."""
     
-    # ------------------------------------------------
-    # 2. 주요 환율 정보 수집 (네이버 금융) 
-    # ------------------------------------------------
+    # --- 1. 환율 수집 ---
     market_list = []
     try:
-        url = "https://finance.naver.com/marketindex/" [cite: 1]
-        res = requests.get(url, headers=HEADERS, timeout=10) [cite: 1]
-        res.encoding = 'euc-kr' [cite: 1]
-        soup = BeautifulSoup(res.text, "html.parser") [cite: 1]
+        url = "https://finance.naver.com/marketindex/"
+        res = requests.get(url, headers=HEADERS, timeout=10)
+        res.encoding = 'euc-kr'
+        soup = BeautifulSoup(res.text, "html.parser")
         
-        usd = soup.select_one("a.head.usd span.value") [cite: 1]
+        usd = soup.select_one("a.head.usd span.value")
         if usd: market_list.append(f"💵 미국 USD: <b>{usd.text}원</b>")
             
-        jpy = soup.select_one("a.head.jpy span.value") [cite: 1]
+        jpy = soup.select_one("a.head.jpy span.value")
         if jpy: market_list.append(f"💴 일본 JPY (100엔): <b>{jpy.text}원</b>")
-    except Exception:
-        market_list.append("⚠️ 환율 정보를 가져오지 못했습니다.")
+    except Exception as e:
+        market_list.append(f"⚠️ 환율 오류: {e}")
     
     market_str = "\n\n".join(market_list)
 
-    # ------------------------------------------------
-    # 3. 가상화폐 시세 수집 (Upbit API) 
-    # ------------------------------------------------
+    # --- 2. 코인 시세 수집 ---
     coin_messages = []
     try:
-        upbit_url = "https://api.upbit.com/v1/ticker?markets=KRW-BTC,KRW-ETH,KRW-XRP,KRW-SAND" [cite: 1]
-        res = requests.get(upbit_url, timeout=10).json() [cite: 1]
-        coin_data = {item['market']: item for item in res} [cite: 1]
+        upbit_url = "https://api.upbit.com/v1/ticker?markets=KRW-BTC,KRW-ETH,KRW-XRP,KRW-SAND"
+        res = requests.get(upbit_url, timeout=10).json()
+        coin_data = {item['market']: item for item in res}
         
         targets = [
-            ('KRW-BTC', '🟠', '비트코인 (BTC)'),
-            ('KRW-ETH', '💠', '이더리움 (ETH)'),
-            ('KRW-XRP', '🌊', '리플 (XRP)'),
-            ('KRW-SAND', '🏖️', '샌드박스 (SAND)')
+            ('KRW-BTC', '🟠', '비트코인'),
+            ('KRW-ETH', '💠', '이더리움'),
+            ('KRW-XRP', '🌊', '리플'),
+            ('KRW-SAND', '🏖️', '샌드박스')
         ]
         
         for m_id, icon, name in targets:
             if m_id in coin_data:
                 d = coin_data[m_id]
-                price = d['trade_price'] [cite: 1]
-                change = d['signed_change_rate'] [cite: 1]
+                price = d['trade_price']
+                change = d['signed_change_rate']
                 emoji = "🔺" if change > 0 else "🔻" if change < 0 else "-"
-                
                 msg = f"{icon} <b>{name}</b>\n현재가: <b>{price:,}원</b> ({emoji} {change*100:.2f}%)"
                 
                 if m_id == 'KRW-SAND':
-                    ret = ((price - MY_SAND_AVG) / MY_SAND_AVG) * 100 [cite: 1]
+                    ret = ((price - MY_SAND_AVG) / MY_SAND_AVG) * 100
                     re_emoji = "🔥" if ret > 0 else "💧" if ret < 0 else "-"
                     msg += f"\n      ↳ 수익률: {re_emoji} <b>{ret:.2f}%</b>"
-                
                 coin_messages.append(msg)
-    except Exception:
-        coin_messages.append("⚠️ 코인 시세를 가져오지 못했습니다.")
+    except Exception as e:
+        coin_messages.append(f"⚠️ 코인 오류: {e}")
+    
     bitcoin_str = "\n\n".join(coin_messages)
 
     return market_str, bitcoin_str
 
 def send_telegram_message(message):
-    """최종 구성된 메시지를 텔레그램으로 전송합니다. """
-    if not TELEGRAM_TOKEN or not CHAT_ID: return [cite: 1]
+    """메시지 전송"""
+    if not TELEGRAM_TOKEN or not CHAT_ID:
+        print("에러: TELEGRAM_TOKEN 또는 CHAT_ID가 설정되지 않았습니다.")
+        return
     
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage" [cite: 1]
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         'chat_id': CHAT_ID, 
         'text': message, 
-        'parse_mode': 'HTML', 
-        'disable_web_page_preview': True [cite: 1]
+        'parse_mode': 'HTML',
+        'disable_web_page_preview': True
     }
-    requests.post(url, data=payload) [cite: 1]
+    res = requests.post(url, data=payload)
+    if res.status_code != 200:
+        print(f"텔레그램 전송 실패: {res.text}")
 
 if __name__ == "__main__":
+    # 여기서 정확히 2개만 받는지 확인하세요!
     exchange, coins = get_financial_info()
     
     final_parts = []
